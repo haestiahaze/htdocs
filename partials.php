@@ -1,0 +1,184 @@
+<?php
+
+function page_header(string $title, string $subtitle = 'Workspace'): void
+{
+    $u = current_user();
+    $u = is_array($u) ? $u : [];
+
+    $role = (string) ($u['role'] ?? '');
+    $firstName = (string) ($u['first_name'] ?? '');
+    $lastName = (string) ($u['last_name'] ?? '');
+    $fullName = trim($firstName . ' ' . $lastName);
+    $displayName = $fullName !== '' ? $fullName : 'Account';
+
+    $nav = [
+        'Client' => [
+            ['client_dashboard.php', 'Overview'],
+            ['new_inquiry.php', 'New inquiry'],
+            ['my_inquiries.php', 'My inquiries'],
+            ['my_projects.php', 'My projects'],
+            ['ai_assistant.php', 'Ask AI assistant'],
+        ],
+        'Personnel' => [
+            ['personnel_dashboard.php', 'Overview'],
+            ['my_tasks.php', 'Assigned tasks'],
+            ['inventory.php', 'Material availability'],
+            ['report_issue.php', 'Report an issue'],
+        ],
+        'Manager' => [
+            ['manager_dashboard.php', 'Overview'],
+            ['manage_inquiries.php', 'Inquiries'],
+            ['quotations.php', 'Quotations'],
+            ['projects.php', 'Projects'],
+            ['inventory.php', 'Inventory'],
+            ['manage_users.php', 'People & access'],
+            ['ai_knowledge.php', 'AI knowledge'],
+            ['ai_escalations.php', 'AI escalations'],
+            ['reports.php', 'Reports'],
+            ['audit_logs.php', 'Audit log'],
+            ['manager_tasks.php', 'Tasks'],
+        ],
+    ];
+
+    $menuItems = $nav[$role] ?? [];
+    $currentPage = basename((string) ($_SERVER['PHP_SELF'] ?? ''));
+
+    ?>
+    <!doctype html>
+    <html lang="en">
+
+    <head>
+        <meta charset="utf-8">
+
+        <meta name="viewport"
+              content="width=device-width, initial-scale=1">
+
+        <title><?= e($title) ?> | GlassAluminum</title>
+
+        <link rel="stylesheet" href="style.css">
+    </head>
+
+    <body>
+
+    <div class="layout">
+
+        <aside class="sidebar" aria-label="Main navigation">
+
+            <!-- HEADER / BRAND -->
+            <div class="sidebar-header">
+
+                <a class="logo" href="index.php">
+                    <span class="brand-mark" aria-hidden="true">GA</span>
+                    <span>GlassAluminum</span>
+                </a>
+
+                <!-- MOBILE HAMBURGER -->
+                <button
+                    type="button"
+                    class="mobile-menu-toggle"
+                    id="mobileMenuToggle"
+                    aria-label="Open navigation menu"
+                    aria-expanded="false"
+                    aria-controls="mobileNavigation"
+                >
+                    <span class="hamburger-icon" aria-hidden="true">☰</span>
+                </button>
+
+            </div>
+
+            <!-- NAVIGATION -->
+            <div class="sidebar-menu" id="mobileNavigation">
+
+                <div class="nav-label">WORKSPACE</div>
+
+                <nav class="nav" aria-label="Workspace navigation">
+
+                    <?php foreach ($menuItems as [$url, $label]): ?>
+
+                        <a
+                            href="<?= e($url) ?>"
+                            class="<?= $currentPage === $url ? 'active' : '' ?>"
+                            <?= $currentPage === $url ? 'aria-current="page"' : '' ?>
+                        >
+                            <?= e($label) ?>
+                        </a>
+
+                    <?php endforeach; ?>
+
+                </nav>
+
+                <!-- USER INFORMATION -->
+                <div class="mobile-user-chip">
+                    <span class="user-icon" aria-hidden="true">●</span>
+
+                    <div>
+                        <strong><?= e($displayName) ?></strong>
+                        <small><?= e($role) ?></small>
+                    </div>
+                </div>
+
+                <!-- LOGOUT -->
+                <div class="sidebar-bottom">
+
+                    <a href="logout.php" class="logout-link">
+                        <span aria-hidden="true">↪</span>
+                        <span>Log out</span>
+                    </a>
+
+                </div>
+
+            </div>
+
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="main">
+
+            <header class="topbar">
+
+                <div class="topbar-heading">
+                    <h1><?= e($title) ?></h1>
+                    <p><?= e($subtitle) ?></p>
+                </div>
+
+            </header>
+
+    <?php
+}
+
+function page_footer(): void
+{
+    echo '
+        <p class="footer-note">
+            GlassAluminum · Project and Inventory Management ·
+            Keep project and material records up to date.
+        </p>
+
+        </main>
+        </div>
+
+        <script src="app.js" defer></script>
+
+        </body>
+        </html>
+    ';
+}
+function stat_card(string $label, $value, string $note = 'Current records'): void
+{
+    echo '<div class="stat">
+          <div class="stat-label">' . e($label) . '</div>
+          <div class="stat-number">' . e((string) $value) . '</div>
+          <div class="stat-note">' . e($note) . '</div>
+          </div>';
+}
+
+function status_badge(string $status): string
+{
+    $class = in_array($status, ['new', 'open', 'under_review', 'requested', 'on_hold'], true)
+        ? 'orange'
+        : (in_array($status, ['declined', 'cancelled', 'damaged'], true)
+            ? 'red'
+            : (in_array($status, ['completed', 'accepted', 'received', 'answered'], true) ? '' : 'gray'));
+
+    return '<span class="badge ' . $class . '">' . e(str_replace('_', ' ', $status)) . '</span>';
+}

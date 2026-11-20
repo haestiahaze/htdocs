@@ -1,0 +1,324 @@
+
+/* =========================================
+   PASSWORD VISIBILITY TOGGLE
+========================================= */
+function togglePassword(id, button) {
+    const input = document.getElementById(id);
+
+    if (!input || !button) {
+        return;
+    }
+
+    const showPassword = input.type === "password";
+
+    input.type = showPassword ? "text" : "password";
+    button.textContent = showPassword ? "Hide" : "Show";
+    button.setAttribute(
+        "aria-label",
+        showPassword ? "Hide password" : "Show password"
+    );
+}
+
+
+/* =========================================
+   AI ASSISTANT CHAT
+========================================= */
+async function askAssistant(form) {
+    const input = form.querySelector('input[name="question"]');
+    const chatBox = document.getElementById("chat-messages");
+
+    if (!input || !chatBox) {
+        return false;
+    }
+
+    const question = input.value.trim();
+
+    if (!question) {
+        return false;
+    }
+
+    // Display the user's message.
+    const userMessage = document.createElement("div");
+    userMessage.className = "chat-msg user";
+    userMessage.textContent = question;
+
+    chatBox.appendChild(userMessage);
+
+    input.value = "";
+
+    // Display a loading message.
+    const waitingMessage = document.createElement("div");
+    waitingMessage.className = "chat-msg";
+    waitingMessage.textContent = "Checking service information…";
+
+    chatBox.appendChild(waitingMessage);
+    chatBox.scrollTop = chatBox.scrollHeight;
+
+    try {
+        const csrfInput = form.querySelector('[name="csrf_token"]');
+
+        if (!csrfInput) {
+            throw new Error("Security token is missing.");
+        }
+
+        const formData = new FormData();
+
+        formData.append("question", question);
+        formData.append("csrf_token", csrfInput.value);
+
+        const response = await fetch("ai_chat.php", {
+            method: "POST",
+            body: formData,
+            headers: {
+                "Accept": "application/json"
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error("The assistant request failed.");
+        }
+
+        const result = await response.json();
+
+        waitingMessage.textContent =
+            result.answer || "I will forward this to the Manager.";
+
+        if (result.escalated) {
+            const notice = document.createElement("div");
+
+            notice.className = "small";
+            notice.textContent =
+                "Your question was forwarded to the Manager.";
+
+            chatBox.appendChild(notice);
+        }
+    } catch (error) {
+        console.error("AI Assistant error:", error);
+
+        waitingMessage.textContent =
+            "Assistant is temporarily unavailable. Please contact the Manager.";
+    }
+
+    chatBox.scrollTop = chatBox.scrollHeight;
+
+    return false;
+}
+
+
+/* =========================================
+   RESPONSIVE NAVIGATION DRAWER
+========================================= */
+document.addEventListener("DOMContentLoaded", function () {
+    const drawer = document.querySelector(".sidebar");
+    const toggle = document.querySelector("[data-drawer-toggle]");
+    const backdrop = document.querySelector("[data-drawer-close]");
+
+    // Stop if the current page does not contain a sidebar.
+    if (!drawer || !toggle || !backdrop) {
+        return;
+    }
+
+    let previousFocus = null;
+    let closeTimer = null;
+
+    // Mobile and tablet: below 1024px.
+    function isMobileOrTablet() {
+        return window.matchMedia("(max-width: 1023px)").matches;
+    }
+
+    function getFocusableElements() {
+        return Array.from(
+            drawer.querySelectorAll(
+                'a[href], button:not([disabled]), ' +
+                'input:not([disabled]), select:not([disabled]), ' +
+                'textarea:not([disabled]), [tabindex="0"]'
+            )
+        ).filter(function (element) {
+            return (
+                !element.closest("[hidden]") &&
+                element.getAttribute("aria-hidden") !== "true"
+            );
+        });
+    }
+
+    /* OPEN DRAWER */
+    function openDrawer() {
+        if (!isMobileOrTablet()) {
+            return;
+        }
+
+        if (drawer.classList.contains("drawer-open")) {
+            return;
+        }
+
+        previousFocus = document.activeElement;
+
+        if (closeTimer) {
+            window.clearTimeout(closeTimer);
+            closeTimer = null;
+        }
+
+        backdrop.hidden = false;
+
+        drawer.classList.add("drawer-open");
+        toggle.classList.add("is-open");
+
+        document.body.classList.add("drawer-lock");
+
+        toggle.setAttribute("aria-expanded", "true");
+        toggle.setAttribute("aria-label", "Close navigation menu");
+
+        requestAnimationFrame(function () {
+            backdrop.classList.add("backdrop-visible");
+        });
+
+        const focusable = getFocusableElements();
+
+        if (focusable.length > 0) {
+            focusable[0].focus();
+        } else {
+            drawer.setAttribute("tabindex", "-1");
+            drawer.focus();
+        }
+    }
+
+    /* CLOSE DRAWER */
+    function closeDrawer(returnFocus = true) {
+        const wasOpen = drawer.classList.contains("drawer-open");
+
+        drawer.classList.remove("drawer-open");
+        backdrop.classList.remove("backdrop-visible");
+        toggle.classList.remove("is-open");
+
+        document.body.classList.remove("drawer-lock");
+
+        toggle.setAttribute("aria-expanded", "false");
+        toggle.setAttribute("aria-label", "Open navigation menu");
+
+        if (closeTimer) {
+            window.clearTimeout(closeTimer);
+        }
+
+        closeTimer = window.setTimeout(function () {
+            if (!drawer.classList.contains("drawer-open")) {
+                backdrop.hidden = true;
+            }
+        }, 250);
+
+        if (
+            returnFocus &&
+            wasOpen &&
+            previousFocus &&
+            typeof previousFocus.focus === "function"
+        ) {
+            previousFocus.focus();
+        }
+
+        previousFocus = null;
+    }
+
+    /* HAMBURGER BUTTON */
+    toggle.addEventListener("click", function () {
+        if (drawer.classList.contains("drawer-open")) {
+            closeDrawer();
+        } else {
+            openDrawer();
+        }
+    });
+
+    /* CLOSE WHEN BACKDROP IS CLICKED */
+    backdrop.addEventListener("click", function () {
+        closeDrawer();
+    });
+
+    /* CLOSE AFTER NAVIGATION */
+    drawer.querySelectorAll("a").forEach(function (link) {
+        link.addEventListener("click", function () {
+            closeDrawer(false);
+        });
+    });
+
+    /* KEYBOARD ACCESSIBILITY */
+    document.addEventListener("keydown", function (event) {
+        if (!drawer.classList.contains("drawer-open")) {
+            return;
+        }
+
+        // Escape closes the drawer.
+        if (event.key === "Escape") {
+            event.preventDefault();
+            closeDrawer();
+            return;
+        }
+
+        // Keep keyboard focus inside the drawer.
+        if (event.key === "Tab") {
+            const focusable = getFocusableElements();
+
+            if (focusable.length === 0) {
+                event.preventDefault();
+                drawer.focus();
+                return;
+            }
+
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+
+            if (
+                event.shiftKey &&
+                (
+                    document.activeElement === first ||
+                    !drawer.contains(document.activeElement)
+                )
+            ) {
+                event.preventDefault();
+                last.focus();
+            } else if (
+                !event.shiftKey &&
+                (
+                    document.activeElement === last ||
+                    !drawer.contains(document.activeElement)
+                )
+            ) {
+                event.preventDefault();
+                first.focus();
+            }
+        }
+    });
+
+    /* RESET DRAWER ON DESKTOP RESIZE */
+    window.addEventListener("resize", function () {
+        if (!isMobileOrTablet()) {
+            closeDrawer(false);
+        }
+    });
+
+    /* COLLAPSIBLE NAVIGATION GROUPS */
+    drawer.querySelectorAll(".nav-group-toggle").forEach(
+        function (button) {
+            button.addEventListener("click", function () {
+                const panelId = button.getAttribute("aria-controls");
+
+                if (!panelId) {
+                    return;
+                }
+
+                const panel = document.getElementById(panelId);
+
+                if (!panel) {
+                    return;
+                }
+
+                const isOpening =
+                    button.getAttribute("aria-expanded") !== "true";
+
+                button.setAttribute(
+                    "aria-expanded",
+                    String(isOpening)
+                );
+
+                panel.hidden = !isOpening;
+            });
+        }
+    );
+});
